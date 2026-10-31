@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Auto Translate",
+    "description": "Translates Chinese interface text from installed plugins into English through Google or Bing, caching results locally."
+  }
+}

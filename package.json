@@ -1,0 +1,61 @@
+{
+  "name": "dsh-auto-i18n",
+  "version": "0.1.0",
+  "description": "Translates Chinese interface text from installed DeepSeek Harness plugins into English through Google or Bing, with a persistent local cache.",
+  "author": "x01Jin",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/x01Jin/dsh-auto-i18n.git"
+  },
+  "homepage": "https://github.com/x01Jin/dsh-auto-i18n#readme",
+  "bugs": {
+    "url": "https://github.com/x01Jin/dsh-auto-i18n/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "translation",
+    "i18n",
+    "localization",
+    "english",
+    "chinese"
+  ],
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.2.1-rc.5"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.1-rc.5": "compatible"
+      }
+    }
+  }
+}
