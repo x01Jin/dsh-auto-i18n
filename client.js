@@ -83,10 +83,12 @@ window.__ModuleLoader__.load({
       const pendingElements = new Set();
       const skipped = new Set();
       let flushTimer = null;
-      let observer = null;
       let active = false;
       let disposed = false;
       let flushing = false;
+      const frames = new WeakSet();
+      const observers = new Set();
+      let attached = new WeakSet();
 
       function skippedNode(node) {
         const element = node.nodeType === 1 ? node : node.parentElement;
@@ -121,13 +123,67 @@ window.__ModuleLoader__.load({
           return;
         }
         if (root.nodeType !== 1 && root.nodeType !== 9) return;
+        const doc = root.nodeType === 9 ? root : root.ownerDocument;
+        if (!doc) return;
         if (root.nodeType === 1) queueElement(root);
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+        const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
         let node = walker.nextNode();
         while (node !== null) {
           if (node.nodeType === 3) queueText(node);
           else queueElement(node);
           node = walker.nextNode();
+        }
+      }
+
+      function attachDocument(doc) {
+        if (disposed || !active || !doc || attached.has(doc)) return;
+        const root = doc.body || doc.documentElement;
+        if (!root) return;
+        attached.add(doc);
+        const View = doc.defaultView;
+        const Observer = View && View.MutationObserver ? View.MutationObserver : MutationObserver;
+        const observer = new Observer(onMutations);
+        observer.observe(root, {
+          subtree: true,
+          childList: true,
+          characterData: true,
+          attributes: true,
+          attributeFilter: ATTRS,
+        });
+        observers.add(observer);
+        scan(root);
+        discoverFrames(doc);
+      }
+
+      function discoverFrames(doc) {
+        if (disposed || !active || !doc) return;
+        let list;
+        try {
+          list = doc.querySelectorAll('iframe, frame');
+        } catch {
+          return;
+        }
+        for (const frame of list) {
+          // Frames embedded in markdown or chat content hold user material, not UI.
+          if (frame.parentElement && frame.parentElement.closest(SKIP)) continue;
+          let target = null;
+          try {
+            target = frame.contentDocument;
+          } catch {
+            target = null;
+          }
+          if (target) attachDocument(target);
+          if (frames.has(frame)) continue;
+          frames.add(frame);
+          frame.addEventListener('load', () => {
+            let next = null;
+            try {
+              next = frame.contentDocument;
+            } catch {
+              next = null;
+            }
+            if (next) attachDocument(next);
+          });
         }
       }
 
@@ -255,6 +311,7 @@ window.__ModuleLoader__.load({
       function onMutations(records) {
         if (!active) return;
         let touched = false;
+        const frameDocs = new Set();
         for (const record of records) {
           if (record.type === 'characterData') {
             const known = textRecords.get(record.target);
@@ -264,7 +321,14 @@ window.__ModuleLoader__.load({
             touched = true;
           } else if (record.type === 'childList') {
             for (const node of record.addedNodes) {
-              if (node.nodeType === 1 || node.nodeType === 3) scan(node);
+              if (node.nodeType === 3) scan(node);
+              else if (node.nodeType === 1) {
+                if (node.matches('iframe, frame') || node.querySelector('iframe, frame')) {
+                  const doc = node.ownerDocument;
+                  if (doc) frameDocs.add(doc);
+                }
+                scan(node);
+              }
             }
             touched = true;
           } else if (record.type === 'attributes' && record.attributeName !== null) {
@@ -272,26 +336,19 @@ window.__ModuleLoader__.load({
             touched = true;
           }
         }
+        for (const doc of frameDocs) discoverFrames(doc);
         if (touched) schedule();
       }
 
       function start() {
         if (disposed || active) return;
-        const root = document.body || document.documentElement;
-        if (!root) {
+        if (!document.body) {
           setTimeout(start, 100);
           return;
         }
         active = true;
-        scan(root);
-        observer = new MutationObserver(onMutations);
-        observer.observe(root, {
-          subtree: true,
-          childList: true,
-          characterData: true,
-          attributes: true,
-          attributeFilter: ATTRS,
-        });
+        attached = new WeakSet();
+        attachDocument(document);
         schedule();
       }
 
@@ -299,8 +356,9 @@ window.__ModuleLoader__.load({
         active = false;
         if (flushTimer) clearTimeout(flushTimer);
         flushTimer = null;
-        if (observer) observer.disconnect();
-        observer = null;
+        for (const observer of observers) observer.disconnect();
+        observers.clear();
+        attached = new WeakSet();
         for (const [node, record] of textRecords) {
           if (node.isConnected && node.nodeValue === record.translated) node.nodeValue = record.source;
         }

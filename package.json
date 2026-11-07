@@ -1,6 +1,6 @@
 {
   "name": "dsh-auto-i18n",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Translates Chinese interface text from installed DeepSeek Harness plugins into English through Google or Bing, with a persistent local cache.",
   "author": "x01Jin",
   "license": "MIT",

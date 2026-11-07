@@ -20,6 +20,7 @@ Translation is on by default. The switch turns it off and restores the original 
 
 - Buttons, labels, menu items, setting rows, dialogs, tooltips, placeholders, and card text.
 - Short descriptions in the plugin market and plugin manager.
+- Same-origin iframe documents, which is how several plugins render a full-page UI (for example a memory workspace embedded at `/lingshu`). Frames mounted later and frames nested inside other frames are covered too. Frames inside chat or markdown content are left alone, because they hold user material rather than interface text.
 
 Skipped on purpose:
 
@@ -34,6 +35,8 @@ A client half walks the page, collects text nodes and the `placeholder`, `title`
 
 A MutationObserver translates nodes added later, such as panels opened after boot. React re-renders can overwrite a translation; the observer reapplies it from cache.
 
+The engine also attaches to each same-origin iframe document it finds and observes that document on its own, so a plugin that renders its UI in a frame behaves like any other part of the page. A frame that navigates is picked up again on its `load` event; cross-origin frames are skipped because their documents are unreadable.
+
 ## Privacy
 
 Text selected for translation is sent to Google's or Bing's anonymous translate endpoints through the Harness translator service. No API key or account is used. Results are cached locally; nothing else is stored or sent.
@@ -43,6 +46,7 @@ Text selected for translation is sent to Google's or Bing's anonymous translate 
 - Machine translation without surrounding context. Short labels are usually clear; longer sentences can read poorly.
 - One request per unique string on first encounter. A page with many Chinese labels takes a few seconds to settle.
 - If both providers fail, strings stay untranslated for that session.
+- Cross-origin iframes cannot be translated; only same-origin frames are reachable.
 - Translation applies to the web UI only.
 
 ## Requirements
